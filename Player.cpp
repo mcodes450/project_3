@@ -1,3 +1,17 @@
+/*
+ *======================================================================
+ * STUDENT & PROJECT INFORMATION
+ *======================================================================
+ *
+ * Student:       Mohammed Uddin
+ * Project:       Project 3 - Ranking Up
+ * Course:        CSCI 33500 - Software Analysis & Design III
+ * Instructor:    Prof. I. Stamos
+ * Semester:      Spring 2026
+ *
+ *======================================================================
+ */
+
 #include "Player.hpp"
 
 // I am setting up the constructor here to initialize a Player object.
