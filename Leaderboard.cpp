@@ -164,4 +164,4 @@ RankingResult rankIncoming(PlayerStream& stream, const size_t& reporting_interva
     return RankingResult(top_heap, cutoffs, total_elapsed_ms);
 }
 
-} // namespace Online
+} 
