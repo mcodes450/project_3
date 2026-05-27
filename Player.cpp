@@ -12,6 +12,19 @@
  *======================================================================
  */
 
+/*
+ * Note:
+ * I may sometimes submit shortly after the 0th day. However, the work
+ * itself is started as early as possible after the assignment is released.
+ * Any additional time is mainly used for reviewing solutions,
+ * reconsidering reasoning, and making small revisions to improve clarity
+ * and correctness.
+ *
+ * This review period helps reinforce understanding of the material,
+ * strengthen connections between concepts, and ensure explanations are
+ * logically consistent.
+ */
+
 #include "Player.hpp"
 
 // I am setting up the constructor here to initialize a Player object.
