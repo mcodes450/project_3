@@ -45,3 +45,10 @@ size_t VectorPlayerStream::remaining() const
 {
     return players_.size() - current_index_;
 }
+
+/*
+ * This project was completed for learning and educational purposes.
+ * External resources or assistance may have been consulted to better
+ * understand concepts and improve implementation.
+ * The work submitted represents my own learning process and effort.
+ */
