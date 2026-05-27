@@ -1,6 +1,7 @@
 #include "Leaderboard.hpp"
-#include <chrono>
 #include <algorithm>
+#include <chrono>
+#include <functional>
 
 RankingResult::RankingResult(const std::vector<Player>& top, const std::unordered_map<size_t, size_t>& cutoffs, double elapsed)
     : top_ { top }
@@ -11,195 +12,156 @@ RankingResult::RankingResult(const std::vector<Player>& top, const std::unordere
 
 namespace Offline {
 
-/**
- * @brief Classical Lomuto-style partition technique that uses the middle 
- * element as a pivot to avoid worst-case O(N^2) behavior on sorted inputs.
- */
-size_t partition(std::vector<Player>& players, int low, int high) {
-    int mid = low + (high - low) / 2;
-    std::swap(players[mid], players[high]);
-    Player pivot = players[high];
-    
-    int i = low;
-    for (int j = low; j < high; ++j) {
-        if (players[j] < pivot) {
-            std::swap(players[i], players[j]);
-            i++;
-        }
-    }
-    std::swap(players[i], players[high]);
-    return i;
-}
-
-/**
- * @brief Hybrid helper that switches strategy dynamically. If a pivot falls within 
- * the top 10% bounds, the right half is fully sorted via quicksort, while 
- * the left side continues selection pruning via quickselect.
- */
-void quickQuark(std::vector<Player>& players, int low, int high, int target_idx) {
-    if (low >= high) return;
-    
-    int pivot_idx = static_cast<int>(partition(players, low, high));
-    
-    if (target_idx == -1) {
-        // Pure quicksort branch
-        quickQuark(players, low, pivot_idx - 1, -1);
-        quickQuark(players, pivot_idx + 1, high, -1);
-    } else {
-        if (pivot_idx < target_idx) {
-            // Target cutoff index lies ahead; skip sorting left side completely
-            quickQuark(players, pivot_idx + 1, high, target_idx);
-        } else {
-            // Pivot is inside the top 10%. The right slice is guaranteed to be 
-            // part of the top 10%, meaning it requires standard quicksort.
-            quickQuark(players, pivot_idx + 1, high, -1);
-            if (pivot_idx > target_idx) {
-                // Left slice still overlaps with target_idx; keep running quickselect
-                quickQuark(players, low, pivot_idx - 1, target_idx);
-            }
-        }
-    }
-}
-
-RankingResult quickSelectRank(std::vector<Player>& players) {
+RankingResult quickSelectRank(std::vector<Player>& players)
+{
     auto start = std::chrono::high_resolution_clock::now();
-    
-    size_t n = players.size();
-    size_t k = n / 10; // Round down to nearest integer
-    int target_idx = static_cast<int>(n - k);
-    
-    if (k > 0) {
-        quickQuark(players, 0, static_cast<int>(n - 1), target_idx);
+
+    // Compute top 10 percent of items rounding down
+    size_t top_count = players.size() / 10;
+
+    if (top_count == 0) {
+        auto end = std::chrono::high_resolution_clock::now();
+        double elapsed = std::chrono::duration<double, std::milli>(end - start).count();
+        return RankingResult({}, {}, elapsed);
     }
-    
-    std::vector<Player> top;
-    if (k > 0) {
-        top.assign(players.begin() + target_idx, players.end());
-    }
-    
+
+    size_t target_index = players.size() - top_count;
+
+    // Use quickselect partitioning to isolate the top 10 percent largest players to the end
+    std::nth_element(players.begin(), players.begin() + target_index, players.end());
+
+    // Sort the isolated upper partition in strict ascending sequence
+    std::sort(players.begin() + target_index, players.end());
+
+    std::vector<Player> top_players(players.begin() + target_index, players.end());
+
     auto end = std::chrono::high_resolution_clock::now();
-    double elapsed_ms = std::chrono::duration<double, std::milli>(end - start).count();
-    
-    return RankingResult(top, {}, elapsed_ms);
+    double elapsed = std::chrono::duration<double, std::milli>(end - start).count();
+
+    return RankingResult(top_players, {}, elapsed);
 }
 
-RankingResult heapRank(std::vector<Player>& players) {
+RankingResult heapRank(std::vector<Player>& players)
+{
     auto start = std::chrono::high_resolution_clock::now();
-    
-    size_t n = players.size();
-    size_t k = n / 10; // Round down to nearest integer
-    
-    if (k > 0) {
-        // Build initial max-heap structure in O(N)
-        std::make_heap(players.begin(), players.end());
-        
-        // Successive pops extract largest elements in reverse order,
-        // which leaves the top elements sorted in ascending order at the end of the vector.
-        for (size_t i = 0; i < k; ++i) {
-            std::pop_heap(players.begin(), players.end() - i);
-        }
+
+    size_t top_count = players.size() / 10;
+
+    if (top_count == 0) {
+        auto end = std::chrono::high_resolution_clock::now();
+        double elapsed = std::chrono::duration<double, std::milli>(end - start).count();
+        return RankingResult({}, {}, elapsed);
     }
-    
-    std::vector<Player> top;
-    if (k > 0) {
-        top.assign(players.end() - k, players.end());
+
+    // Construct an initial max heap across the container slice
+    std::make_heap(players.begin(), players.end());
+
+    // Execute early stopping heapsort to pop only the necessary top items
+    for (size_t i = 0; i < top_count; ++i) {
+        std::pop_heap(players.begin(), players.end() - i);
     }
-    
+
+    std::vector<Player> top_players(players.end() - top_count, players.end());
+
     auto end = std::chrono::high_resolution_clock::now();
-    double elapsed_ms = std::chrono::duration<double, std::milli>(end - start).count();
-    
-    return RankingResult(top, {}, elapsed_ms);
+    double elapsed = std::chrono::duration<double, std::milli>(end - start).count();
+
+    return RankingResult(top_players, {}, elapsed);
 }
 
 } // namespace Offline
 
 namespace Online {
 
-void replaceMin(PlayerIt first, PlayerIt last, Player& target) {
-    size_t size = std::distance(first, last);
-    if (size == 0) return;
-    
-    // Override the current minimum element located at the root
+void replaceMin(PlayerIt first, PlayerIt last, Player& target)
+{
+    if (first == last) return;
+
+    // Overwrite the root min node position directly with the replacement value
     *first = std::move(target);
-    
-    // Percolate down using zero-based indexing to restore the min-heap status
-    size_t parent = 0;
+
+    // Track array indices manually to filter elements down the binary layout structure
+    size_t index = 0;
+    size_t count = std::distance(first, last);
+
     while (true) {
-        size_t leftChild = 2 * parent + 1;
-        size_t rightChild = leftChild + 1;
-        if (leftChild >= size) break; // Reached leaf level
-        
-        size_t minChild = leftChild;
-        if (rightChild < size && *(first + rightChild) < *(first + leftChild)) {
-            minChild = rightChild;
+        size_t left_child = 2 * index + 1;
+        size_t right_child = 2 * index + 2;
+        size_t smallest = index;
+
+        // Evaluate level values to track structural shifts within a min heap context
+        if (left_child < count && *(first + left_child) < *(first + smallest)) {
+            smallest = left_child;
         }
-        
-        if (*(first + minChild) < *(first + parent)) {
-            std::swap(*(first + parent), *(first + minChild));
-            parent = minChild;
+        if (right_child < count && *(first + right_child) < *(first + smallest)) {
+            smallest = right_child;
+        }
+
+        // Keep sinking the elements down until order assertions hold true
+        if (smallest != index) {
+            std::swap(*(first + index), *(first + smallest));
+            index = smallest;
         } else {
-            break; // Valid heap positioning met
+            break;
         }
     }
 }
 
-RankingResult rankIncoming(PlayerStream& stream, const size_t& reporting_interval) {
-    double elapsed_ms = 0;
-    std::vector<Player> heap;
+RankingResult rankIncoming(PlayerStream& stream, const size_t& reporting_interval)
+{
+    std::vector<Player> top_heap;
     std::unordered_map<size_t, size_t> cutoffs;
+    double total_elapsed_ms = 0.0;
     size_t processed_count = 0;
-    
+
     while (stream.remaining() > 0) {
-        // Time taken to extract elements from the stream is excluded from the tracker
+        // Exclude next player retrieval streaming costs from performance duration logs
         Player p = stream.nextPlayer();
-        
+
         auto start = std::chrono::high_resolution_clock::now();
         processed_count++;
-        
-        if (heap.size() < reporting_interval) {
-            heap.push_back(p);
-            if (heap.size() == reporting_interval) {
-                // Initialize min-heap with std::greater once memory buffer fills up
-                std::make_heap(heap.begin(), heap.end(), std::greater<Player>());
+
+        if (top_heap.size() < reporting_interval) {
+            top_heap.push_back(p);
+            if (top_heap.size() == reporting_interval) {
+                // Initialize internal storage buffer sequence as a min heap layout layout
+                std::make_heap(top_heap.begin(), top_heap.end(), std::greater<Player>());
             }
         } else {
-            // Replace root element if candidate level is greater than current threshold minimum
-            if (p > heap.front()) {
-                replaceMin(heap.begin(), heap.end(), p);
+            // Conditionally filter incoming data stream against the active leaderboard minimum bound
+            if (p.level_ > top_heap.front().level_) {
+                replaceMin(top_heap.begin(), top_heap.end(), p);
             }
         }
-        
-        // Capture milestone snapshots
+
+        // Record active progress limits matching exact interval intervals
         if (processed_count % reporting_interval == 0) {
-            if (heap.size() == reporting_interval) {
-                cutoffs[processed_count] = heap.front().level_;
-            } else {
-                auto min_it = std::min_element(heap.begin(), heap.end());
-                cutoffs[processed_count] = (min_it != heap.end()) ? min_it->level_ : 1;
+            if (!top_heap.empty()) {
+                cutoffs[processed_count] = top_heap.front().level_;
             }
         }
-        
+
         auto end = std::chrono::high_resolution_clock::now();
-        elapsed_ms += std::chrono::duration<double, std::milli>(end - start).count();
+        total_elapsed_ms += std::chrono::duration<double, std::milli>(end - start).count();
     }
-    
-    // Final transformation: sort leaderboard from lowest to highest level
-    auto start_sort = std::chrono::high_resolution_clock::now();
-    if (!heap.empty()) {
-        std::sort(heap.begin(), heap.end());
-    }
-    
-    // Log absolute final cutoff state regardless of reporting interval intervals
-    if (processed_count > 0) {
-        if (!heap.empty()) {
-            cutoffs[processed_count] = heap.front().level_;
+
+    // Save final status information logging boundaries immediately upon completing all reads
+    auto final_start = std::chrono::high_resolution_clock::now();
+    if (processed_count > 0 && !top_heap.empty()) {
+        if (top_heap.size() < reporting_interval) {
+            cutoffs[processed_count] = std::min_element(top_heap.begin(), top_heap.end())->level_;
+        } else {
+            cutoffs[processed_count] = top_heap.front().level_;
         }
     }
-    
-    auto end_sort = std::chrono::high_resolution_clock::now();
-    elapsed_ms += std::chrono::duration<double, std::milli>(end_sort - start_sort).count();
-    
-    return RankingResult(heap, cutoffs, elapsed_ms);
+
+    // Ensure terminal collection results match final tracking sequence sorting specifications
+    std::sort(top_heap.begin(), top_heap.end());
+
+    auto final_end = std::chrono::high_resolution_clock::now();
+    total_elapsed_ms += std::chrono::duration<double, std::milli>(final_end - final_start).count();
+
+    return RankingResult(top_heap, cutoffs, total_elapsed_ms);
 }
 
 } // namespace Online
