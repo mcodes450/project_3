@@ -1,38 +1,43 @@
 #pragma once
 #include "Player.hpp"
-#include <iostream>
-#include <sstream>
-#include <stdexcept>
-#include <string>
 #include <vector>
+#include <stdexcept>
 
-/**
- * @brief Interface for fetching Player objects sequentially.
- */
+// Base abstract class interface for streaming players
 class PlayerStream {
 public:
-    virtual Player nextPlayer() = 0;
-    virtual size_t remaining() const = 0;
     virtual ~PlayerStream() = default;
+    
+    /**
+     * @brief Retrieves the next Player in the stream.
+     * @return The next Player object in the sequence.
+     */
+    virtual Player nextPlayer() = 0;
+
+    /**
+     * @brief Returns the number of players remaining in the stream.
+     * @return The count of players left to be read.
+     */
+    virtual size_t remaining() const = 0;
 };
 
-/**
- * @brief The interface for a PlayerStream created using the contents of a vector.
- */
+// Vector-backed implementation of the PlayerStream interface
 class VectorPlayerStream : public PlayerStream {
 private:
     std::vector<Player> players_;
-    size_t cursor_;
+    size_t current_index_;
 
 public:
     /**
      * @brief Constructs a VectorPlayerStream from a vector of Players.
+     * @param players The vector of Player objects to stream.
      */
     VectorPlayerStream(const std::vector<Player>& players);
 
     /**
-    * @brief Retrieves the next Player in the stream.
-    */
+     * @brief Retrieves the next Player in the stream.
+     * @throws std::runtime_error If there are no more players remaining.
+     */
     Player nextPlayer() override;
 
     /**
