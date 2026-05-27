@@ -1,3 +1,17 @@
+/*
+ *======================================================================
+ * STUDENT & PROJECT INFORMATION
+ *======================================================================
+ *
+ * Student:       Mohammed Uddin
+ * Project:       Project 3 - Ranking Up
+ * Course:        CSCI 33500 - Software Analysis & Design III
+ * Instructor:    Prof. I. Stamos
+ * Semester:      Spring 2026
+ *
+ * ======================================================================
+ */
+
 #include "PlayerStream.hpp"
 
 // Constructor: Initializes the stream with a sequence of Player objects matching the contents of the given vector.
