@@ -17,9 +17,9 @@ namespace Offline {
         return total_size / 10; // Integer division naturally rounds down for us
     }
 
-    // =========================================================================
+    // ==================================================
     // Part A: Heapsort approach
-    // =========================================================================
+    // ==================================================
     RankingResult heapRank(std::vector<Player>& players) {
         // Start tracking time for the selection/sorting operation.
         auto start_time = std::chrono::high_resolution_clock::now();
@@ -59,9 +59,9 @@ namespace Offline {
         return RankingResult(top_players, {}, duration);
     }
 
-    // =========================================================================
+    // ==================================================
     // Part B: Quicksort approach
-    // =========================================================================
+    // ==================================================
     
     // Student Thought Process: Standard Lomuto partitioning scheme.
     // Partitioning around a pivot means everything is less than the pivot on one side, and greater than the pivot on the other.
@@ -140,9 +140,9 @@ namespace Offline {
 
 namespace Online {
 
-    // =========================================================================
+    // ==================================================
     // Part B: Replace Min
-    // =========================================================================
+    // ==================================================
     // replaceMin() is a modified percolateDown() routine that replaces the top (ie. overrides the minimum value) of
     // a min-heap with a new element, then percolates it down to maintain the heap-property.
     void replaceMin(PlayerIt first, PlayerIt last, Player& target) {
@@ -178,9 +178,9 @@ namespace Online {
         *(first + parent) = std::move(root_val);
     }
 
-    // =========================================================================
+    // ==================================================
     // Part C: Continuous Stream
-    // =========================================================================
+    // ==================================================
     RankingResult rankIncoming(PlayerStream& stream, const size_t& reporting_interval) {
         auto start_time = std::chrono::high_resolution_clock::now();
         double elapsed_ms = 0.0;
