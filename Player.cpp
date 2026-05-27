@@ -51,3 +51,10 @@ bool Player::operator>(const Player& rhs) const
 {
     return level_ > rhs.level_;
 }
+
+/*
+ * This project was completed for learning and educational purposes.
+ * External resources or assistance may have been consulted to better
+ * understand concepts and improve implementation.
+ * The work submitted represents my own learning process and effort.
+ */
